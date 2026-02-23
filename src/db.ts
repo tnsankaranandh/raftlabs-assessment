@@ -1,11 +1,13 @@
 import { MongoClient } from 'mongodb'
 
-const MONGODB_URI =
-  'mongodb+srv://tnsankaranandh_db_user:Sankar@91@raftlabs.gnjgxml.mongodb.net/?appName=RaftLabs'
+const MONGODB_URI = process.env.MONGODB_URI ?? ''
 
 let client: MongoClient | null = null
 
 export async function getDb() {
+  if (!MONGODB_URI) {
+    throw new Error('MONGODB_URI environment variable is not set')
+  }
   if (!client) {
     client = new MongoClient(MONGODB_URI)
     await client.connect()
