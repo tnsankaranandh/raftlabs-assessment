@@ -16,6 +16,7 @@ router.get('/', (req, res) => {
           <a href="/">Home</a>
           <a href="/about">About</a>
           <a href="/api-data">API Data</a>
+          <a href="/db-data">DB Data</a>
           <a href="/healthz">Health</a>
         </nav>
         <h1>Welcome to Express on Vercel 🚀</h1>
