@@ -1,12 +1,11 @@
 import { Router } from 'express'
-import { getDb } from '../db.js'
+import { TestModel } from '../models/Test.js'
 
 const router = Router()
 
-router.get('/', async (req, res) => {
+router.get('/', async (_req, res) => {
   try {
-    const db = await getDb()
-    const docs = await db.collection('test').find({}).toArray()
+    const docs = await TestModel.find({}).lean().exec()
     res.json(docs)
   } catch (err) {
     console.error('getFromDB error:', err)
