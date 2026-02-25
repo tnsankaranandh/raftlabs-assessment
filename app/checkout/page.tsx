@@ -42,7 +42,7 @@ export default function CheckoutPage() {
 
   const cartItemsDetailed = useMemo(() => {
     return Object.entries(cartItems)
-      .filter(([, qty]) => qty > 0)
+      .filter(([, qty]) => (qty as number) > 0)
       .map(([id, qty]) => {
         const item = menuItems.find((m: MenuItem) => m.id === id)
         if (!item) return null

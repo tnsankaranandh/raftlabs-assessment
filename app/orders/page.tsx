@@ -46,11 +46,7 @@ export default function OrdersPage() {
       try {
         setLoading(true)
         const adminSecret = sessionStorage.getItem('adminSecret') || ''
-        const allOrders = await fetchJSON<Order[]>('/api/admin/orders', {
-          headers: {
-            'x-admin-secret': adminSecret,
-          },
-        })
+        const allOrders = await fetchJSON<Order[]>('/api/admin/orders')
         setOrders(allOrders)
         setError(null)
       } catch (err: any) {

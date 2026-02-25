@@ -46,15 +46,6 @@ export async function getMenu(): Promise<MenuItem[]> {
   }))
 }
 
-export function computeStatusForOrder(order: Order, now = new Date()): OrderStatus {
-  const created = new Date(order.createdAt).getTime()
-  const elapsedSeconds = (now.getTime() - created) / 1000
-
-  if (elapsedSeconds < 20) return 'ORDER_RECEIVED'
-  if (elapsedSeconds < 60) return 'PREPARING'
-  return 'OUT_FOR_DELIVERY'
-}
-
 export async function createOrder(
   items: { itemId: string; quantity: number }[],
   customer: OrderCustomer,
@@ -101,16 +92,11 @@ export async function getAllOrders(): Promise<Order[]> {
   await connectDB()
   const orders = (await OrderModel.find({}).lean()) as any[]
   return orders.map((o: any) => {
-    const status = computeStatusForOrder({ ...o } as Order)
-    if (status !== o.status) {
-      // Note: Update is not awaited here to maintain compatibility with caller
-      OrderModel.findByIdAndUpdate(o._id, { status }).catch(() => {})
-    }
     return {
       id: o.id as string,
       items: o.items as OrderItem[],
       customer: o.customer as OrderCustomer,
-      status,
+      status: o.status as OrderStatus,
       createdAt: o.createdAt as string,
     }
   })
@@ -121,17 +107,11 @@ export async function getOrderById(id: string): Promise<Order | undefined> {
   const existing = (await OrderModel.findOne({ id }).lean()) as any
   if (!existing) return undefined
 
-  const status = computeStatusForOrder({ ...existing } as Order)
-  if (status !== existing.status) {
-    // Note: Update is not awaited here to maintain compatibility with caller
-    OrderModel.findByIdAndUpdate(existing._id, { status }).catch(() => {})
-  }
-
   return {
     id: existing.id as string,
     items: existing.items as OrderItem[],
     customer: existing.customer as OrderCustomer,
-    status,
+    status: existing.status as OrderStatus,
     createdAt: existing.createdAt as string,
   }
 }
