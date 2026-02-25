@@ -66,25 +66,66 @@ export default function AdminPage() {
 
   useEffect(() => {
     const s = loadSecret()
-    if (s !== null) setSecret(s)
+    if (s !== null) {
+      setSecret(s)
+    } else {
+      // No secret in session storage, redirect to login
+      setNeedsLogin(true)
+      setLoading(false)
+    }
   }, [loadSecret])
 
   useEffect(() => {
+    if (needsLogin) {
+      // Don't fetch orders if login is needed
+      return
+    }
     const s = secret ?? loadSecret()
-    fetchOrders(s)
-  }, [secret])
+    if (s) {
+      fetchOrders(s)
+    }
+  }, [secret, needsLogin, fetchOrders, loadSecret])
+
+  // Auto-refresh orders every 5 seconds when authenticated
+  useEffect(() => {
+    if (!needsLogin && secret) {
+      const interval = setInterval(() => {
+        const s = loadSecret()
+        if (s) {
+          fetchOrders(s)
+        }
+      }, 5000)
+      return () => clearInterval(interval)
+    }
+  }, [needsLogin, secret, loadSecret, fetchOrders])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setLoading(true)
     try {
-      const ok = await fetchOrders(passwordInput)
-      if (ok) {
-        sessionStorage.setItem(STORAGE_KEY, passwordInput)
-        setSecret(passwordInput)
-        setPasswordInput('')
+      // Call login API to verify password
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ password: passwordInput }),
+      })
+
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        throw new Error(data.error || `Login failed with status ${res.status}`)
       }
+
+      // If login successful, store the password and set secret
+      sessionStorage.setItem(STORAGE_KEY, passwordInput)
+      setSecret(passwordInput)
+      setNeedsLogin(false)
+      setPasswordInput('')
+    } catch (err: any) {
+      setError(err.message || 'Login failed')
     } finally {
       setLoading(false)
     }
@@ -92,7 +133,7 @@ export default function AdminPage() {
 
   const handleUpdateStatus = async (orderId: string, status: OrderStatus) => {
     const s = secret ?? loadSecret()
-    if (!s) return
+    if (!s) return setNeedsLogin(true)
     setUpdatingId(orderId)
     setError(null)
     try {
@@ -158,6 +199,7 @@ export default function AdminPage() {
               sessionStorage.removeItem(STORAGE_KEY)
               setSecret(null)
               setOrders([])
+              setNeedsLogin(true)
             }}
           >
             Sign out

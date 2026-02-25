@@ -3,47 +3,62 @@ import { connectDB } from './mongodb'
 import { MenuItem as MenuItemModel } from './models/MenuItem'
 import { Order as OrderModel } from './models/Order'
 
-const defaultMenu: MenuItem[] = [
-  {
-    id: 'margherita-pizza',
-    name: 'Margherita Pizza',
-    description: 'Classic pizza with fresh mozzarella, basil, and tomato sauce.',
-    price: 10.99,
-    imageUrl: '/images/margherita.jpg',
-  },
-  {
-    id: 'cheeseburger',
-    name: 'Cheeseburger',
-    description: 'Juicy beef patty, cheddar cheese, lettuce, and tomato.',
-    price: 8.49,
-    imageUrl: '/images/cheeseburger.jpg',
-  },
-  {
-    id: 'veggie-bowl',
-    name: 'Veggie Bowl',
-    description: 'Roasted vegetables with quinoa and tahini drizzle.',
-    price: 9.25,
-    imageUrl: '/images/veggie-bowl.jpg',
-  },
-]
-
-export async function getMenu(): Promise<MenuItem[]> {
+export async function getMenu(page = 1, pageSize = 10): Promise<MenuItem[]> {
   await connectDB()
-  let items = await MenuItemModel.find({}).lean()
+  const skip = (page - 1) * pageSize
+  const items = await MenuItemModel.find({})
+    .skip(skip)
+    .limit(pageSize)
+    .lean()
 
-  // Initialize menu if empty
-  if (items.length === 0) {
-    await MenuItemModel.insertMany(defaultMenu)
-    items = await MenuItemModel.find({}).lean()
-  }
-
-  return items.map((item) => ({
+  return items.map((item: any) => ({
     id: item.id,
     name: item.name,
     description: item.description,
     price: item.price,
-    imageUrl: item.imageUrl,
+    image: item.image,
   }))
+}
+
+export async function searchMenuItems(query: string, page = 1, pageSize = 10): Promise<MenuItem[]> {
+  await connectDB()
+
+  const searchRegex = new RegExp(query, 'i')
+  const skip = (page - 1) * pageSize
+  
+  const items = await MenuItemModel.find({
+    $or: [
+      { name: searchRegex },
+      { description: searchRegex },
+    ],
+  })
+    .skip(skip)
+    .limit(pageSize)
+    .lean()
+
+  return items.map((item: any) => ({
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    price: item.price,
+    image: item.image,
+  }))
+}
+
+export async function getMenuCount(): Promise<number> {
+  await connectDB()
+  return MenuItemModel.countDocuments({})
+}
+
+export async function getSearchResultCount(query: string): Promise<number> {
+  await connectDB()
+  const searchRegex = new RegExp(query, 'i')
+  return MenuItemModel.countDocuments({
+    $or: [
+      { name: searchRegex },
+      { description: searchRegex },
+    ],
+  })
 }
 
 export async function createOrder(
@@ -122,13 +137,17 @@ export async function updateOrderStatus(id: string, status: OrderStatus): Promis
   if (!result) return undefined
 
   await OrderModel.updateOne({ id }, { status })
+  
+  // Fetch the updated document to ensure we return the latest data
+  const updated = (await OrderModel.findOne({ id }).lean()) as any
+  if (!updated) return undefined
 
   return {
-    id: result.id as string,
-    items: result.items as OrderItem[],
-    customer: result.customer as OrderCustomer,
-    status: status as OrderStatus,
-    createdAt: result.createdAt as string,
+    id: updated.id as string,
+    items: updated.items as OrderItem[],
+    customer: updated.customer as OrderCustomer,
+    status: updated.status as OrderStatus,
+    createdAt: updated.createdAt as string,
   }
 }
 

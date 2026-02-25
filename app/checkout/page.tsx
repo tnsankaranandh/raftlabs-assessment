@@ -34,9 +34,9 @@ export default function CheckoutPage() {
     return stored ? JSON.parse(stored) : {}
   }, [])
 
-  const menuItems = useMemo(() => {
+  const cartMenuItemDetails = useMemo(() => {
     if (typeof window === 'undefined') return []
-    const stored = sessionStorage.getItem('menu')
+    const stored = sessionStorage.getItem('cartMenuItemDetails')
     return stored ? JSON.parse(stored) : []
   }, [])
 
@@ -44,7 +44,7 @@ export default function CheckoutPage() {
     return Object.entries(cartItems)
       .filter(([, qty]) => (qty as number) > 0)
       .map(([id, qty]) => {
-        const item = menuItems.find((m: MenuItem) => m.id === id)
+        const item = cartMenuItemDetails.find((m: MenuItem) => m.id === id)
         if (!item) return null
         return {
           ...item,
@@ -53,7 +53,7 @@ export default function CheckoutPage() {
         }
       })
       .filter(Boolean)
-  }, [cartItems, menuItems])
+  }, [cartItems, cartMenuItemDetails])
 
   const cartTotal = useMemo(
     () => cartItemsDetailed.reduce((sum, item) => sum + (item?.lineTotal || 0), 0),

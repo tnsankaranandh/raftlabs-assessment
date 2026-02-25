@@ -8,7 +8,6 @@ type CartState = Record<string, number>
 
 interface CartPageProps {
   cartItems: CartState
-  menuItems: MenuItem[]
   onUpdateQuantity: (id: string, delta: number) => void
 }
 
@@ -19,10 +18,9 @@ export default function CartPage() {
     const stored = sessionStorage.getItem('cart')
     return stored ? JSON.parse(stored) : {}
   }, [])
-
-  const menuItems = useMemo(() => {
+  const cartMenuItemDetails = useMemo(() => {
     if (typeof window === 'undefined') return []
-    const stored = sessionStorage.getItem('menu')
+    const stored = sessionStorage.getItem('cartMenuItemDetails')
     return stored ? JSON.parse(stored) : []
   }, [])
 
@@ -30,7 +28,7 @@ export default function CartPage() {
     return Object.entries(cartItems)
       .filter(([, qty]) => (qty as number) > 0)
       .map(([id, qty]) => {
-        const item = menuItems.find((m: MenuItem) => m.id === id)
+        const item = cartMenuItemDetails.find((m: MenuItem) => m.id === id)
         if (!item) return null
         return {
           ...item,
@@ -39,7 +37,7 @@ export default function CartPage() {
         }
       })
       .filter(Boolean)
-  }, [cartItems, menuItems])
+  }, [cartItems, cartMenuItemDetails])
 
   const cartTotal = useMemo(
     () => cartItemsDetailed.reduce((sum, item) => sum + (item?.lineTotal || 0), 0),

@@ -3,7 +3,7 @@ export type MenuItem = {
   name: string
   description: string
   price: number
-  imageUrl: string
+  image: string // base64 encoded image
 }
 
 export type CartItem = {

@@ -20,7 +20,7 @@ const menuItemSchema = new mongoose.Schema<IMenuItem & mongoose.Document>(
       type: Number,
       required: true,
     },
-    imageUrl: {
+    image: {
       type: String,
       required: true,
     },

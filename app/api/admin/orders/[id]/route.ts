@@ -7,6 +7,8 @@ const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? ''
 function requireAdmin(request: Request): NextResponse | null {
   if (!ADMIN_PASSWORD) return null
   const secret = request.headers.get('x-admin-secret')
+  console.log('Admin secret provided in header:', secret);
+  console.log('ADMIN_PASSWORD provided in env:', ADMIN_PASSWORD);
   if (secret !== ADMIN_PASSWORD) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

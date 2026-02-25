@@ -1,10 +1,20 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useTransition } from 'react'
 import Link from 'next/link'
 import type { MenuItem } from '@/lib/types'
 
 type CartState = Record<string, number>
+
+interface MenuResponse {
+  items: MenuItem[]
+  pagination: {
+    page: number
+    pageSize: number
+    total: number
+    totalPages: number
+  }
+}
 
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
@@ -24,17 +34,43 @@ async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
 export default function HomePage() {
   const [menu, setMenu] = useState<MenuItem[]>([])
   const [cart, setCart] = useState<CartState>({})
+  const [cartMenuItemDetails, setCartMenuItemDetails] = useState<MenuItem[]>([])
   const [error, setError] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [isSearching, startTransition] = useTransition()
+
+  const fetchMenuItems = async (page: number, search: string) => {
+    setError(null)
+    try {
+      const params = new URLSearchParams()
+      params.set('page', String(page))
+      if (search) params.set('search', search)
+
+      const response = await fetchJSON<MenuResponse>(`/api/menu?${params.toString()}`)
+      setMenu(response.items)
+      setCurrentPage(response.pagination.page)
+      setTotalPages(response.pagination.totalPages)
+    } catch (err: any) {
+      setError(err.message)
+    }
+  }
 
   useEffect(() => {
-    fetchJSON<MenuItem[]>('/api/menu')
-      .then((items) => {
-        setMenu(items)
-        // Store menu in sessionStorage for other pages
-        sessionStorage.setItem('menu', JSON.stringify(items))
-      })
-      .catch((err) => setError(err.message))
+    fetchMenuItems(1, '')
   }, [])
+
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      startTransition(() => {
+        fetchMenuItems(1, searchQuery)
+      })
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [searchQuery])
 
   // Load cart from sessionStorage
   useEffect(() => {
@@ -53,19 +89,43 @@ export default function HomePage() {
     [cart],
   )
 
-  function updateQuantity(id: string, delta: number) {
+  function updateQuantity(item: MenuItem, delta: number) {
     setCart((prev) => {
       const next = { ...prev }
+      const id = item.id
       const current = next[id] ?? 0
       const updated = current + delta
+      const indexInCartDetails = cartMenuItemDetails.findIndex((i) => i.id === id)
+      let newCartMenuItemDetails = [...cartMenuItemDetails];
       if (updated <= 0) {
         delete next[id]
+        if (indexInCartDetails !== -1) {
+          const updatedDetails = [...cartMenuItemDetails]
+          updatedDetails.splice(indexInCartDetails, 1)
+          newCartMenuItemDetails = updatedDetails
+          setCartMenuItemDetails(updatedDetails)
+        }
       } else {
         next[id] = updated
+        if (indexInCartDetails === -1) {
+          newCartMenuItemDetails = [...cartMenuItemDetails, item];
+          setCartMenuItemDetails(() => newCartMenuItemDetails)
+        }
       }
-      // Persist to sessionStorage
       sessionStorage.setItem('cart', JSON.stringify(next))
+      sessionStorage.setItem('cartMenuItemDetails', JSON.stringify(newCartMenuItemDetails))
+      
       return next
+    })
+  }
+
+  const handleClearSearch = () => {
+    setSearchQuery('')
+  }
+
+  const handlePaginationChange = (newPage: number) => {
+    startTransition(() => {
+      fetchMenuItems(newPage, searchQuery)
     })
   }
 
@@ -87,6 +147,15 @@ export default function HomePage() {
             <Link href="/orders" className="button secondary">
               Track Orders
             </Link>
+            <a
+              href="/admin"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="button secondary"
+              style={{ backgroundColor: 'rgba(245, 151, 39, 0.8)' }}
+            >
+              Admin →
+            </a>
           </div>
         </div>
       </header>
@@ -96,8 +165,39 @@ export default function HomePage() {
           <p style={{ marginBottom: '1rem', color: '#4b5563' }}>
             Pick your favourites and add them to your cart.
           </p>
-          {menu.length === 0 && !error && <p>Loading menu...</p>}
+
+          {/* Search Section */}
+          <div style={{ marginBottom: '1.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <input
+                type="text"
+                className="input"
+                placeholder="Search menu items..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search menu items"
+                style={{ flex: 1 }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  className="button secondary"
+                  onClick={handleClearSearch}
+                  disabled={isSearching}
+                  aria-label="Clear search"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          {menu.length === 0 && !error && !searchQuery && <p>Loading menu...</p>}
           {error && <p className="error">{error}</p>}
+          {menu.length === 0 && !isSearching && searchQuery && (
+            <p style={{ color: '#4b5563' }}>No items found for "{searchQuery}"</p>
+          )}
+
           <div className="grid">
             {menu.map((item) => {
               const quantity = cart[item.id] ?? 0
@@ -112,9 +212,11 @@ export default function HomePage() {
                     style={{
                       height: 120,
                       borderRadius: 8,
-                      background:
-                        'linear-gradient(135deg, rgba(251,191,36,0.25), rgba(239,68,68,0.25))',
+                      background: '#f0f0f0',
                       marginBottom: 8,
+                      backgroundImage: `url("${item.image}")`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
                     }}
                   />
                   <h3>{item.name}</h3>
@@ -133,7 +235,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         className="button secondary"
-                        onClick={() => updateQuantity(item.id, -1)}
+                        onClick={() => updateQuantity(item, -1)}
                         disabled={quantity === 0}
                         aria-label={`Decrease ${item.name} quantity`}
                       >
@@ -143,7 +245,7 @@ export default function HomePage() {
                       <button
                         type="button"
                         className="button"
-                        onClick={() => updateQuantity(item.id, 1)}
+                        onClick={() => updateQuantity(item, 1)}
                         aria-label={`Increase ${item.name} quantity`}
                       >
                         +
@@ -154,6 +256,60 @@ export default function HomePage() {
               )
             })}
           </div>
+
+          {/* Pagination Section */}
+          {totalPages > 1 && menu.length > 0 && (
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                gap: '0.5rem',
+                marginTop: '1.5rem',
+                paddingTop: '1rem',
+                borderTop: '1px solid #e5e7eb',
+              }}
+            >
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => handlePaginationChange(currentPage - 1)}
+                disabled={currentPage === 1 || isSearching}
+                aria-label="Previous page"
+              >
+                ← Previous
+              </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <button
+                    key={page}
+                    type="button"
+                    className="button"
+                    onClick={() => handlePaginationChange(page)}
+                    disabled={currentPage === page || isSearching}
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      backgroundColor: currentPage === page ? '#4b5563' : '#f3f4f6',
+                      color: currentPage === page ? 'white' : 'inherit',
+                    }}
+                    aria-label={`Page ${page}`}
+                    aria-current={currentPage === page ? 'page' : undefined}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+              <button
+                type="button"
+                className="button secondary"
+                onClick={() => handlePaginationChange(currentPage + 1)}
+                disabled={currentPage === totalPages || isSearching}
+                aria-label="Next page"
+              >
+                Next →
+              </button>
+            </div>
+          )}
         </section>
 
         {cartItemCount > 0 && (
