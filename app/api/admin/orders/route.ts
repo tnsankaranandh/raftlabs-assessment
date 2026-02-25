@@ -5,3 +5,6 @@ export async function GET(request: Request) {
   const orders = await getAllOrders()
   return NextResponse.json(orders)
 }
+
+export const fetchCache = 'force-no-store';
+export const dynamic = 'force-dynamic';

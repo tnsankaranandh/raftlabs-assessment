@@ -35,3 +35,6 @@ export async function POST(request: Request) {
     )
   }
 }
+
+export const fetchCache = 'force-no-store';
+export const dynamic = 'force-dynamic';

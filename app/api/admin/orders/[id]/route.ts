@@ -36,3 +36,6 @@ export async function PATCH(request: Request, { params }: Params) {
   }
   return NextResponse.json(order)
 }
+
+export const fetchCache = 'force-no-store';
+export const dynamic = 'force-dynamic';

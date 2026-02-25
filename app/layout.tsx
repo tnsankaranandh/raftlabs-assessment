@@ -14,3 +14,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   )
 }
 
+export const fetchCache = 'force-no-store';
+export const dynamic = 'force-dynamic';
+

@@ -220,3 +220,6 @@ export default function OrderDetailPage() {
     </>
   )
 }
+
+export const fetchCache = 'force-no-store';
+export const dynamic = 'force-dynamic';

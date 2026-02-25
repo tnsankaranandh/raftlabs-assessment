@@ -214,3 +214,6 @@ export default function CheckoutPage() {
     </>
   )
 }
+
+export const fetchCache = 'force-no-store';
+export const dynamic = 'force-dynamic';

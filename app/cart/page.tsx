@@ -172,3 +172,6 @@ export default function CartPage() {
     </>
   )
 }
+
+export const fetchCache = 'force-no-store';
+export const dynamic = 'force-dynamic';
