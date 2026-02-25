@@ -99,26 +99,46 @@ export async function createOrder(
 
 export async function getAllOrders(): Promise<Order[]> {
   await connectDB()
-  const orders = await OrderModel.find({}).lean()
-  return orders.map((o) => {
-    const status = computeStatusForOrder(o)
+  const orders = (await OrderModel.find({}).lean()) as any[]
+  return orders.map((o: any) => {
+    const status = computeStatusForOrder({ ...o } as Order)
     if (status !== o.status) {
       // Note: Update is not awaited here to maintain compatibility with caller
       OrderModel.findByIdAndUpdate(o._id, { status }).catch(() => {})
     }
     return {
-      id: o.id,
-      items: o.items,
-      customer: o.customer,
+      id: o.id as string,
+      items: o.items as OrderItem[],
+      customer: o.customer as OrderCustomer,
       status,
-      createdAt: o.createdAt,
+      createdAt: o.createdAt as string,
     }
   })
 }
 
+export async function getOrderById(id: string): Promise<Order | undefined> {
+  await connectDB()
+  const existing = (await OrderModel.findOne({ id }).lean()) as any
+  if (!existing) return undefined
+
+  const status = computeStatusForOrder({ ...existing } as Order)
+  if (status !== existing.status) {
+    // Note: Update is not awaited here to maintain compatibility with caller
+    OrderModel.findByIdAndUpdate(existing._id, { status }).catch(() => {})
+  }
+
+  return {
+    id: existing.id as string,
+    items: existing.items as OrderItem[],
+    customer: existing.customer as OrderCustomer,
+    status,
+    createdAt: existing.createdAt as string,
+  }
+}
+
 export async function updateOrderStatus(id: string, status: OrderStatus): Promise<Order | undefined> {
   await connectDB()
-  const result = await OrderModel.findOne({ id }).lean()
+  const result = (await OrderModel.findOne({ id }).lean()) as any
   if (!result) return undefined
 
   await OrderModel.updateOne({ id }, { status })
