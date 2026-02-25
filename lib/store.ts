@@ -1,6 +1,9 @@
 import type { MenuItem, Order, OrderCustomer, OrderItem, OrderStatus } from './types'
+import { connectDB } from './mongodb'
+import { MenuItem as MenuItemModel } from './models/MenuItem'
+import { Order as OrderModel } from './models/Order'
 
-const menu: MenuItem[] = [
+const defaultMenu: MenuItem[] = [
   {
     id: 'margherita-pizza',
     name: 'Margherita Pizza',
@@ -24,16 +27,23 @@ const menu: MenuItem[] = [
   },
 ]
 
-let orders: Order[] = []
+export async function getMenu(): Promise<MenuItem[]> {
+  await connectDB()
+  let items = await MenuItemModel.find({}).lean()
 
-export function getMenu(): MenuItem[] {
-  return menu
-}
+  // Initialize menu if empty
+  if (items.length === 0) {
+    await MenuItemModel.insertMany(defaultMenu)
+    items = await MenuItemModel.find({}).lean()
+  }
 
-function nextStatus(status: OrderStatus): OrderStatus {
-  if (status === 'ORDER_RECEIVED') return 'PREPARING'
-  if (status === 'PREPARING') return 'OUT_FOR_DELIVERY'
-  return 'OUT_FOR_DELIVERY'
+  return items.map((item) => ({
+    id: item.id,
+    name: item.name,
+    description: item.description,
+    price: item.price,
+    imageUrl: item.imageUrl,
+  }))
 }
 
 export function computeStatusForOrder(order: Order, now = new Date()): OrderStatus {
@@ -45,10 +55,10 @@ export function computeStatusForOrder(order: Order, now = new Date()): OrderStat
   return 'OUT_FOR_DELIVERY'
 }
 
-export function createOrder(
+export async function createOrder(
   items: { itemId: string; quantity: number }[],
   customer: OrderCustomer,
-): Order {
+): Promise<Order> {
   if (!customer.name.trim() || !customer.address.trim() || !customer.phone.trim()) {
     throw new Error('Missing required customer details')
   }
@@ -56,8 +66,11 @@ export function createOrder(
     throw new Error('Order must contain at least one item')
   }
 
+  await connectDB()
+  const menuItems = await MenuItemModel.find({}).lean()
+
   const orderItems: OrderItem[] = items.map(({ itemId, quantity }) => {
-    const menuItem = menu.find((m) => m.id === itemId)
+    const menuItem = menuItems.find((m) => m.id === itemId)
     if (!menuItem) {
       throw new Error(`Invalid menu item: ${itemId}`)
     }
@@ -80,29 +93,48 @@ export function createOrder(
     createdAt: new Date().toISOString(),
   }
 
-  orders.push(order)
+  await OrderModel.create(order)
   return order
 }
 
-export function getOrderById(id: string): Order | undefined {
-  const existing = orders.find((o) => o.id === id)
-  if (!existing) return undefined
+export async function getAllOrders(): Promise<Order[]> {
+  await connectDB()
+  const orders = await OrderModel.find({}).lean()
+  return orders.map((o) => {
+    const status = computeStatusForOrder(o)
+    if (status !== o.status) {
+      // Note: Update is not awaited here to maintain compatibility with caller
+      OrderModel.findByIdAndUpdate(o._id, { status }).catch(() => {})
+    }
+    return {
+      id: o.id,
+      items: o.items,
+      customer: o.customer,
+      status,
+      createdAt: o.createdAt,
+    }
+  })
+}
 
-  const status = computeStatusForOrder(existing)
-  if (status !== existing.status) {
-    existing.status = status
+export async function updateOrderStatus(id: string, status: OrderStatus): Promise<Order | undefined> {
+  await connectDB()
+  const result = await OrderModel.findOne({ id }).lean()
+  if (!result) return undefined
+
+  await OrderModel.updateOne({ id }, { status })
+
+  return {
+    id: result.id as string,
+    items: result.items as OrderItem[],
+    customer: result.customer as OrderCustomer,
+    status: status as OrderStatus,
+    createdAt: result.createdAt as string,
   }
-  return existing
 }
 
-export function updateOrderStatus(id: string, status: OrderStatus): Order | undefined {
-  const order = orders.find((o) => o.id === id)
-  if (!order) return undefined
-  order.status = status
-  return order
+export async function clearStore(): Promise<void> {
+  await connectDB()
+  await OrderModel.deleteMany({})
 }
 
-export function clearStore() {
-  orders = []
-}
 

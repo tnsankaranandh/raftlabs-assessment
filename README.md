@@ -1,7 +1,13 @@
-# Express.js on Vercel
-#
+# Food Order Management
 
-Basic Express.js + Vercel example that serves html content, JSON data and simulates an api route.
+Next.js full-stack app for ordering food and managing order status.
+
+## Admin Page
+
+Restaurant admins can manage orders at **`/admin`**.
+
+- **Local dev** (no `ADMIN_PASSWORD` set): Open `/admin` to view and update orders.
+- **Production**: Set `ADMIN_PASSWORD` in Vercel env vars. Admins sign in with that password to access `/admin`.
 
 ## How to Use
 

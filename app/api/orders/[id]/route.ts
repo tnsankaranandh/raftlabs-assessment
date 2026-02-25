@@ -8,7 +8,7 @@ type Params = {
 }
 
 export async function GET(_request: Request, { params }: Params) {
-  const order = getOrderById(params.id)
+  const order = await getOrderById(params.id)
   if (!order) {
     return NextResponse.json({ error: 'Order not found' }, { status: 404 })
   }
