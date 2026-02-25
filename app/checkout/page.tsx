@@ -8,6 +8,7 @@ import type { MenuItem, Order } from '@/lib/types'
 async function fetchJSON<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...options,
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
       ...(options?.headers ?? {}),

@@ -23,7 +23,7 @@ async function fetchWithAuth<T>(
   }
   if (secret) headers['x-admin-secret'] = secret
 
-  const res = await fetch(url, { ...options, headers })
+  const res = await fetch(url, { ...options, cache: 'no-store', headers })
   const data = await res.json().catch(() => ({}))
   if (!res.ok) throw new Error(data.error ?? `Request failed: ${res.status}`)
   return data
@@ -107,6 +107,7 @@ export default function AdminPage() {
       // Call login API to verify password
       const res = await fetch('/api/admin/login', {
         method: 'POST',
+        cache: 'no-store',
         headers: {
           'Content-Type': 'application/json',
         },
